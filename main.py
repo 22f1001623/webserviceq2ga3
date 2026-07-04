@@ -23,7 +23,7 @@ app.add_middleware(
 
 # Initialize the modern Google GenAI Client
 # Ensure GEMINI_API_KEY is configured inside your cloud hosting platform variables
-
+# DO THIS: This reads the key from the system settings securely
 API_KEY = "AIzaSyYourActualKeyGoesInsideTheseQuotes"
 client = genai.Client(api_key=API_KEY)
 
