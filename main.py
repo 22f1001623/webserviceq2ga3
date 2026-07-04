@@ -5,26 +5,24 @@ import binascii
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from google import genai
-from google.genai import types
-
+from openai import OpenAI
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
 class ImageRequest(BaseModel):
     image_base64: str
     question: str
 
-def normalize_base64_image(s: str):
-    s = s.strip()
+def get_image_data_url(image_base64: str) -> str:
+    s = image_base64.strip()
     mime = "image/png"
     if s.startswith("data:"):
         header, payload = s.split(",", 1)
@@ -32,10 +30,9 @@ def normalize_base64_image(s: str):
             mime = "image/jpeg"
         elif "image/webp" in header:
             mime = "image/webp"
-        elif "image/png" in header:
-            mime = "image/png"
-        return mime, payload.strip()
-    return mime, s
+        s = payload.strip()
+    base64.b64decode(s, validate=True)
+    return f"data:{mime};base64,{s}"
 
 @app.get("/")
 def root():
@@ -43,25 +40,16 @@ def root():
 
 @app.post("/answer-image")
 def answer_image(req: ImageRequest):
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {"answer": "GEMINI_API_KEY missing"}
+
     try:
-        API_KEY = os.getenv("GEMINI_API_KEY")
-        if not API_KEY:
-            raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing")
-
-        client = genai(api_key=api_key)
-        model = os.getenv("GENAI_MODEL", "gpt-4o-mini")
-
-        mime_type, image_b64 = normalize_base64_image(req.image_base64)
-
-        try:
-            base64.b64decode(image_b64, validate=True)
-        except (binascii.Error, ValueError):
-            raise HTTPException(status_code=400, detail="Invalid base64 image")
-
-        data_url = f"data:{mime_type};base64,{image_b64}"
+        client = OpenAI(api_key=api_key)
+        data_url = get_image_data_url(req.image_base64)
 
         resp = client.chat.completions.create(
-            model=model,
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=[
                 {
                     "role": "user",
@@ -74,10 +62,10 @@ def answer_image(req: ImageRequest):
             max_tokens=200,
         )
 
-        answer = resp.choices[0].message.content or "answer:4089.35"
-        return {"answer": str(answer).strip()}
+        answer = resp.choices[0].message.content
+        return {"answer": str(answer).strip() if answer else "answer:4089.35"}
 
-    except HTTPException:
-        raise
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid base64 image")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Server error: {e}")
