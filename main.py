@@ -5,7 +5,7 @@ import binascii
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from openai import OpenAI
+from google import genai
 
 app = FastAPI()
 
@@ -45,7 +45,7 @@ def answer_image(req: ImageRequest):
         return {"answer": "GEMINI_API_KEY missing"}
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = genai(api_key=api_key)
         data_url = get_image_data_url(req.image_base64)
 
         resp = client.chat.completions.create(
