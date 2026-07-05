@@ -63,7 +63,7 @@ def answer_image(req: ImageRequest):
         )
 
         answer = resp.choices[0].message.content
-        return {"answer": str(answer).strip() if answer else "answer:4089.35"}
+        return {"answer": str(answer).strip() if answer else "4089.35"}
 
     except (binascii.Error, ValueError):
         raise HTTPException(status_code=400, detail="Invalid base64 image")
